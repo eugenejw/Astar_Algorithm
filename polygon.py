@@ -1,0 +1,303 @@
+class Graph:
+    def __init__(self):
+        self.edges = {}
+    
+    def neighbors(self, id):
+        return self.edges[id]
+
+example_graph = Graph()
+example_graph.edges = {
+    'A': ['B'],
+    'B': ['A', 'C', 'D'],
+    'C': ['A'],
+    'D': ['E', 'A'],
+    'E': ['B']
+}
+
+import collections
+
+class Queue:
+    def __init__(self):
+        self.elements = collections.deque()
+    
+    def empty(self):
+        return len(self.elements) == 0
+    
+    def put(self, x):
+        self.elements.append(x)
+    
+    def get(self):
+        return self.elements.popleft()
+
+#gen map
+def gen_map():
+    grid = []
+    for i in range(0,30):
+        for j in range(0,30):
+            if i==0:
+                continue
+            if j==3:
+                continue
+            if j==15 and i>3:
+                continue
+            if i ==3:
+                continue
+            if i ==15 and j>15:
+                continue
+            if j==25 and i>15:
+                continue
+            if i ==27 and j>3:
+                continue
+            if j ==29:
+                continue
+            
+            grid.append((i,j))
+
+    return grid
+
+# utility functions for dealing with square grids
+def from_id_width(id, *, width):
+    return (id % width, id // width)
+
+def draw_tile(graph, id, style, width):
+    r = "."
+    if 'number' in style and id in style['number']: r = "%d" % style['number'][id]
+    if 'point_to' in style and style['point_to'].get(id, None) is not None:
+        (x1, y1) = id
+        (x2, y2) = style['point_to'][id]
+        if x2 == x1 + 1: r = "\u2192"
+        if x2 == x1 - 1: r = "\u2190"
+        if y2 == y1 + 1: r = "\u2193"
+        if y2 == y1 - 1: r = "\u2191"
+    if 'start' in style and id == style['start']: r = "A"
+    if 'goal' in style and id == style['goal']: r = "Z"
+    if 'path' in style and id in style['path']: r = "@"
+    if id in graph.walls: r = "#" * width
+    return r
+
+def draw_grid(graph, width=2, **style):
+    for y in range(graph.height):
+        for x in range(graph.width):
+            print("%%-%ds" % width % draw_tile(graph, (x, y), style, width), end="")
+        print()
+
+# data from main article
+DIAGRAM1_WALLS = [from_id_width(id, width=30) for id in [21,22,51,52,81,82,93,94,111,112,123,124,133,134,141,142,153,154,163,164,171,172,173,174,175,183,184,193,194,201,202,203,204,205,213,214,223,224,243,244,253,254,273,274,283,284,303,304,313,314,333,334,343,344,373,374,403,404,433,434]]
+
+class SquareGrid:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.walls = []
+#        self.one_way = {(0,7):(0,8)}
+
+    
+    def in_bounds(self, id):
+        (x, y) = id
+        return 0 <= x < self.width and 0 <= y < self.height
+    
+    def passable(self, id):
+        (x,y) = id
+        if id not in self.walls and not point_in_poly(x,y,polygon):
+            return id
+            
+    
+    def neighbors(self, id):
+        (x, y) = id
+        results = [(x+1, y), (x, y-1), (x-1, y), (x, y+1)]
+        if (x,y) in one_way_dic:
+            print('One Way Encountered!')
+            if one_way_dic[(x,y)] in results:
+                results.remove(one_way_dic[(x,y)])
+        if (x + y) % 2 == 0: results.reverse() # aesthetics
+        results = filter(self.in_bounds, results)
+        results = filter(self.passable, results)
+        return results
+
+class GridWithWeights(SquareGrid):
+    def __init__(self, width, height):
+        super().__init__(width, height)
+        self.weights = {}
+    
+    def cost(self, a, b):
+        return self.weights.get(b, 1)
+
+diagram4 = GridWithWeights(10, 10)
+
+diagram4.walls = [(1, 7), (1, 8), (2, 7), (2, 8), (3, 7), (3, 8)]
+diagram4.weights = {loc: 5 for loc in [(3, 4), (3, 5), (4, 1), (4, 2),
+                                       (4, 3), (4, 4), (4, 5), (4, 6), 
+                                       (4, 7), (4, 8), (5, 1), (5, 2),
+                                       (5, 3), (5, 4), (5, 5), (5, 6), 
+                                       (5, 7), (5, 8), (6, 2), (6, 3), 
+                                       (6, 4), (6, 5), (6, 6), (6, 7), 
+                                       (7, 3), (7, 4), (7, 5)]}
+
+
+
+import heapq
+
+class PriorityQueue:
+    def __init__(self):
+        self.elements = []
+    
+    def empty(self):
+        return len(self.elements) == 0
+    
+    def put(self, item, priority):
+        heapq.heappush(self.elements, (priority, item))
+    
+    def get(self):
+        return heapq.heappop(self.elements)[1]
+
+def dijkstra_search(graph, start, goal):
+    frontier = PriorityQueue()
+    frontier.put(start, 0)
+    came_from = {}
+    cost_so_far = {}
+    came_from[start] = None
+    cost_so_far[start] = 0
+    
+    while not frontier.empty():
+        current = frontier.get()
+        
+        if current == goal:
+            break
+        
+        for next in graph.neighbors(current):
+            new_cost = cost_so_far[current] + graph.cost(current, next)
+            if next not in cost_so_far or new_cost < cost_so_far[next]:
+                cost_so_far[next] = new_cost
+                priority = new_cost
+                frontier.put(next, priority)
+                came_from[next] = current
+    
+    return came_from, cost_so_far
+
+def reconstruct_path(came_from, start, goal):
+    current = goal
+    path = [current]
+    while current != start:
+        current = came_from[current]
+        path.append(current)
+    return path
+
+def heuristic(a, b):
+    (x1, y1) = a
+    (x2, y2) = b
+    return abs(x1 - x2) + abs(y1 - y2)
+
+def a_star_search(graph, start, goal):
+    frontier = PriorityQueue()
+    frontier.put(start, 0)
+    came_from = {}
+    cost_so_far = {}
+    came_from[start] = None
+    cost_so_far[start] = 0
+    
+    while not frontier.empty():
+        current = frontier.get()
+        
+        if current == goal:
+            
+            break
+        
+        for next in graph.neighbors(current):
+            new_cost = cost_so_far[current] + graph.cost(current, next)
+            if next not in cost_so_far or new_cost < cost_so_far[next]:
+                cost_so_far[next] = new_cost
+                priority = new_cost + heuristic(goal, next)
+                frontier.put(next, priority)
+                came_from[next] = current
+    
+    return came_from, cost_so_far
+
+def point_in_poly(x,y,poly):
+
+    n = len(poly)
+    inside = False
+
+    p1x,p1y = poly[0]
+    for i in range(n+1):
+        p2x,p2y = poly[i % n]
+        if y > min(p1y,p2y):
+            if y <= max(p1y,p2y):
+                if x <= max(p1x,p2x):
+                    if p1y != p2y:
+                        xints = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x,p1y = p2x,p2y
+
+    return inside
+
+
+
+'''
+#one way encountered
+came_from, cost_so_far = a_star_search(diagram4, (1, 4), (7, 8))
+draw_grid(diagram4, width=3, point_to=came_from, start=(1, 4), goal=(7, 8))
+print()
+draw_grid(diagram4, width=3, number=cost_so_far, start=(1, 4), goal=(7, 8))
+print()
+draw_grid(diagram4, width=3, path=reconstruct_path(came_from, start=(1, 4), goal=(7, 8)))
+'''
+
+'''
+#reverse the way
+came_from, cost_so_far = a_star_search(diagram4, (7, 8), (1, 4))
+draw_grid(diagram4, width=3, point_to=came_from, start=(7, 8), goal=(1, 4))
+print()
+draw_grid(diagram4, width=3, number=cost_so_far, start=(7, 8), goal=(1, 4))
+print()
+draw_grid(diagram4, width=3, path=reconstruct_path(came_from, start=(7, 8), goal=(1, 4)))
+'''
+
+'''
+#polygon way encountered
+#by uncomment the polygon list
+came_from, cost_so_far = a_star_search(diagram4, (1, 4), (8, 4))
+draw_grid(diagram4, width=3, point_to=came_from, start=(1, 4), goal=(8, 4))
+print()
+draw_grid(diagram4, width=3, number=cost_so_far, start=(1, 4), goal=(8, 4))
+print()
+draw_grid(diagram4, width=3, path=reconstruct_path(came_from, start=(1, 4), goal=(8, 4)))
+'''
+
+#map setup
+diagram5 = GridWithWeights(30, 30)
+one_way_dic = {}
+#one_way_dic = {(0,7):(0,8)}
+diagram5.walls = gen_map()
+
+
+#high-way 
+#diagram5.weights = {loc: 0 for loc in [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8), (0, 9), (0, 10), (0, 11), (0, 12), (0, 13), (0, 14), (0, 15), (0, 16), (0, 17), (0, 18), (0, 19), (0, 20), (0, 21), (0, 22), (0, 23), (0, 24), (0, 25), (0, 26), (0, 27), (0, 28), (0, 29)]}
+
+
+#polygon way encountered
+#by uncomment the polygon list
+polygon = [(5,5), (5,29), (20,5), (20,27)]
+#polygon = [(15,15),(15,15),(15,15)]
+
+one_way_dic = {}
+#one_way_dic = {(3,15):(4,15)}
+
+came_from, cost_so_far = a_star_search(diagram5, (0, 0), (27, 25))
+draw_grid(diagram5, width=3, point_to=came_from, start=(0, 0), goal=(27, 25))
+print()
+draw_grid(diagram5, width=3, number=cost_so_far, start=(0, 0), goal=(27, 25))
+print()
+draw_grid(diagram5, width=3, path=reconstruct_path(came_from, start=(0, 0), goal=(27, 25)))
+
+#below code is for demoing one way
+#enable this by uncommenting
+'''
+came_from, cost_so_far = a_star_search(diagram5, (27, 25), (0, 0))
+draw_grid(diagram5, width=3, point_to=came_from, start=(27, 25), goal=(0, 0))
+print()
+draw_grid(diagram5, width=3, number=cost_so_far, start=(27, 25), goal=(0, 0))
+print()
+draw_grid(diagram5, width=3, path=reconstruct_path(came_from, start=(27, 25), goal=(0, 0)))
+'''
+

@@ -1,0 +1,24 @@
+grid = []
+for i in range(0,30):
+    for j in range(0,30):
+        if i==0:
+            continue
+        if j==3:
+            continue
+        if j==15 and i>3:
+            continue
+        if i ==3:
+            continue
+        if i ==15 and j>15:
+            continue
+        if j==25 and i>15:
+            continue
+        if i ==27 and j>3:
+            continue
+        if j ==29:
+            continue
+            
+        grid.append((i,j))
+
+print grid
+    
